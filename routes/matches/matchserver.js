@@ -70,19 +70,14 @@ router.get(
       } else {
         let currentMatchInfo =
           "SELECT server_id, team1_id, team2_id, is_pug FROM `match` WHERE id = ?";
-        const matchRow = await db.query(
-          currentMatchInfo,
-          req.params.match_id
-        );
+        const matchRow = await db.query(currentMatchInfo, req.params.match_id);
         let teamIdWinner =
           req.params.winner_id == 1
             ? matchRow[0].team1_id
             : matchRow[0].team2_id;
         let mapStatSql =
           "SELECT id FROM map_stats WHERE match_id=? AND map_number=0";
-        const mapStat = await db.query(mapStatSql, [
-          req.params.match_id,
-        ]);
+        const mapStat = await db.query(mapStatSql, [req.params.match_id]);
         let mapStatId;
         let newStatStmt = {
           start_time: new Date().toISOString().slice(0, 19).replace("T", " "),
@@ -106,43 +101,40 @@ router.get(
             "UPDATE map_stats SET ? WHERE match_id=? AND map_number=0";
         }
         let matchSql = "UPDATE `match` SET ? WHERE id=?";
-        let serverUpdateSql = "UPDATE game_server SET in_use=0 WHERE id=?";
         if (!mapStat.length) {
           mapStatId = await db.query(mapStatSql, [newStatStmt]);
-        }
-        else
-          await db.query(mapStatSql, [
-            newStatStmt,
-            req.params.match_id,
-          ]);
-        await db.query(matchSql, [
-          matchUpdateStmt,
-          req.params.match_id,
-        ]);
-        await db.query(serverUpdateSql, [matchRow[0].server_id]);
+        } else await db.query(mapStatSql, [newStatStmt, req.params.match_id]);
+        await db.query(matchSql, [matchUpdateStmt, req.params.match_id]);
+
         if (matchRow[0].is_pug != null && matchRow[0].is_pug == 1) {
           await Utils.updatePugStats(
-              req.params.match_id,
-              !mapStat.length ? mapStatId.insertId : mapStat[0].id,
-              matchRow[0].team1_id,
-              matchRow[0].team2_id,
-              teamIdWinner == 1 ? matchRow[0].team1_id : matchRow[0].team2_id
-            );
+            req.params.match_id,
+            !mapStat.length ? mapStatId.insertId : mapStat[0].id,
+            matchRow[0].team1_id,
+            matchRow[0].team2_id,
+            teamIdWinner == 1 ? matchRow[0].team1_id : matchRow[0].team2_id
+          );
         }
         let getServerSQL =
           "SELECT ip_string, port, rcon_password FROM game_server WHERE id=?";
-        const serverRow = await db.query(getServerSQL, [
-          matchRow[0].server_id,
-        ]);
+        const serverRow = await db.query(getServerSQL, [matchRow[0].server_id]);
         let serverUpdate = new GameServer(
           serverRow[0].ip_string,
           serverRow[0].port,
           serverRow[0].rcon_password
         );
-        if (!serverUpdate.endGet5Match()) {
-          console.log(
-            "Error attempting to stop match on game server side. Will continue."
-          );
+        let serverGet5Status = await serverUpdate.get5Status();
+        if (
+          serverGet5Status &&
+          serverGet5Status.matchid == req.params.match_id
+        ) {
+          if (!(await serverUpdate.endGet5Match())) {
+            console.log(
+              "Error attempting to stop match on game server side. Will continue."
+            );
+          }
+          let serverUpdateSql = "UPDATE game_server SET in_use=0 WHERE id=?";
+          await db.query(serverUpdateSql, [matchRow[0].server_id]);
         }
         res.json({ message: "Match has been forfeitted successfully." });
         return;
@@ -198,18 +190,12 @@ router.get(
         res.status(errMessage.status).json({ message: errMessage.message });
         return;
       } else {
-
         let currentMatchInfo =
           "SELECT server_id, team1_id, team2_id, is_pug FROM `match` WHERE id = ?";
-        const matchRow = await db.query(
-          currentMatchInfo,
-          req.params.match_id
-        );
+        const matchRow = await db.query(currentMatchInfo, req.params.match_id);
         let mapStatSql =
           "SELECT id FROM map_stats WHERE match_id=? AND map_number=0";
-        const mapStat = await db.query(mapStatSql, [
-          req.params.match_id,
-        ]);
+        const mapStat = await db.query(mapStatSql, [req.params.match_id]);
         let mapStatId;
         let newStatStmt = {
           end_time: new Date().toISOString().slice(0, 19).replace("T", " "),
@@ -232,20 +218,12 @@ router.get(
             "UPDATE map_stats SET ? WHERE match_id=? AND map_number=0";
         }
         let matchSql = "UPDATE `match` SET ? WHERE id=?";
-        let serverUpdateSql = "UPDATE game_server SET in_use=0 WHERE id=?";
+
         if (!mapStat.length) {
           mapStatId = await db.query(mapStatSql, [newStatStmt]);
-        }
-        else
-          await db.query(mapStatSql, [
-            newStatStmt,
-            req.params.match_id,
-          ]);
-        await db.query(matchSql, [
-          matchUpdateStmt,
-          req.params.match_id,
-        ]);
-        await db.query(serverUpdateSql, [matchRow[0].server_id]);
+        } else await db.query(mapStatSql, [newStatStmt, req.params.match_id]);
+        await db.query(matchSql, [matchUpdateStmt, req.params.match_id]);
+
         if (matchRow[0].is_pug != null && matchRow[0].is_pug == 1) {
           await Utils.updatePugStats(
             req.params.match_id,
@@ -267,10 +245,18 @@ router.get(
             serverRow[0].port,
             serverRow[0].rcon_password
           );
-          if (!serverUpdate.endGet5Match()) {
-            console.log(
-              "Error attempting to stop match on game server side. Will continue."
-            );
+          let serverGet5Status = await serverUpdate.get5Status();
+          if (
+            serverGet5Status &&
+            serverGet5Status.matchid == req.params.match_id
+          ) {
+            if (!(await serverUpdate.endGet5Match())) {
+              console.log(
+                "Error attempting to stop match on game server side. Will continue."
+              );
+            }
+            let serverUpdateSql = "UPDATE game_server SET in_use=0 WHERE id=?";
+            await db.query(serverUpdateSql, [matchRow[0].server_id]);
           }
         }
         res.json({ message: "Match has been cancelled successfully." });
@@ -365,9 +351,7 @@ router.put(
           serverRow[0].rcon_password
         );
         try {
-          let rconResponse = await serverUpdate.sendRconCommand(
-            strRconCommand
-          );
+          let rconResponse = await serverUpdate.sendRconCommand(strRconCommand);
           res.json({
             message: "Command Sent Successfully.",
             response: rconResponse,
@@ -989,9 +973,7 @@ router.post(
           serverRow[0].rcon_password
         );
         if (req.body[0].backup_name == null) {
-          res
-            .status(412)
-            .json({ message: "Please provide the backup name." });
+          res.status(412).json({ message: "Please provide the backup name." });
           return;
         }
         try {

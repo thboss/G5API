@@ -58,7 +58,23 @@ class ServerRcon {
         get5Status.substring(0, get5Status.lastIndexOf("L")).length == 0
           ? get5Status
           : get5Status.substring(0, get5Status.lastIndexOf("L"));
-      let get5JsonStatus = await JSON.parse(get5Status);
+      let get5JsonStatus;
+      try {
+        get5JsonStatus = await JSON.parse(get5Status);
+      } catch (err) {
+        console.log(
+          "Caught error when executing command: get5_web_available\n" +
+            "   Game server: " +
+            this.host +
+            ":" +
+            this.port.toString() +
+            "\n   Response: " +
+            get5Status.toString() +
+            "\n",
+          err
+        );
+        return false;
+      }
       if (get5Status.includes("Unknown command")) {
         console.log("Either get5 or get5_apistats plugin missing.");
         return false;
@@ -71,6 +87,32 @@ class ServerRcon {
     } catch (err) {
       console.error("Error on isAvailable server: " + err.toString());
       throw err;
+    }
+  }
+
+  /**
+   * Get response from game server via a get5 call.
+   * @function
+   */
+  async get5Status() {
+    try {
+      if (process.env.NODE_ENV === "test") {
+        return false;
+      }
+      let get5Status = await this.execute("get5_status");
+      // Weird L coming in from the console call? Incomplete packets.
+      get5Status =
+        get5Status.substring(0, get5Status.lastIndexOf("L")).length == 0
+          ? get5Status
+          : get5Status.substring(0, get5Status.lastIndexOf("L"));
+      let get5JsonStatus;
+      get5JsonStatus = await JSON.parse(get5Status);
+
+      if (get5Status.includes("Unknown command")) return false;
+      return get5JsonStatus;
+    } catch (err) {
+      console.error("Error on get5Status server: " + err.toString());
+      return false;
     }
   }
 
@@ -92,7 +134,7 @@ class ServerRcon {
   }
 
   /**
-   * 
+   *
    * Checks if the server is up to date via a steam API call.
    * @returns True if up to date, false otherwise.
    */
@@ -105,14 +147,22 @@ class ServerRcon {
       let serverResponse = await this.execute("version");
       let serverVersion = serverResponse.match(/(?<=version ).*(?= \[)/);
       // Call steam API to check if the version is the latest.
-      let response = await fetch("https://api.steampowered.com/ISteamApps/UpToDateCheck/v0001/?appid=730&version=" + serverVersion + "&format=json");
+      let response = await fetch(
+        "https://api.steampowered.com/ISteamApps/UpToDateCheck/v0001/?appid=730&version=" +
+          serverVersion +
+          "&format=json"
+      );
       let data = await response.json();
       if (!data.response.up_to_date) {
-        console.log("Server is not up to date! Current version: " + serverVersion + " - Latest version: " + data.response.required_version);
+        console.log(
+          "Server is not up to date! Current version: " +
+            serverVersion +
+            " - Latest version: " +
+            data.response.required_version
+        );
         return false;
-      }
-      else {
-        return true
+      } else {
+        return true;
       }
     } catch (err) {
       console.error("Error on game server: " + err.toString());
@@ -197,7 +247,7 @@ class ServerRcon {
       if (process.env.NODE_ENV === "test") {
         return false;
       }
-      await this.execute("sm_pause")
+      await this.execute("sm_pause");
       return true;
     } catch (err) {
       console.error("RCON error on pause: " + err.toString());

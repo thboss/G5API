@@ -316,7 +316,7 @@ router.get("/:steam_id/pug", async (req, res, next) => {
            WHERE   cancelled=0
            AND     is_pug=1)`;
     let playerstats = await db.query(sql, steamID);
-    if (!playerstats.length) {
+    if (!playerstats.length || !playerstats[0].steam_id) {
       res.status(404).json({ message: "No stats found for player " + steamID });
       return;
     }
@@ -351,17 +351,188 @@ router.get("/:steam_id/pug", async (req, res, next) => {
                 parseFloat(playerstats[0].kills)) *
               100
             ).toFixed(2),
-      average_rating: Utils.getRating(
+      average_rating: Utils.getElo(
         parseFloat(playerstats[0].kills),
-        parseFloat(playerstats[0].trp),
         parseFloat(playerstats[0].deaths),
-        parseFloat(playerstats[0].k1),
+        parseFloat(playerstats[0].assists),
+        parseFloat(playerstats[0].hsk),
         parseFloat(playerstats[0].k2),
         parseFloat(playerstats[0].k3),
         parseFloat(playerstats[0].k4),
-        parseFloat(playerstats[0].k5)
+        parseFloat(playerstats[0].k5),
+        parseFloat(playerstats[0].v1),
+        parseFloat(playerstats[0].v2),
+        parseFloat(playerstats[0].v3),
+        parseFloat(playerstats[0].v4),
+        parseFloat(playerstats[0].v5),
+        parseFloat(playerstats[0].totalMaps),
+        parseFloat(playerstats[0].wins)
       ),
-      wins: playerstats[0].wins,
+      wins: parseFloat(playerstats[0].wins),
+      total_maps: playerstats[0].totalMaps,
+    };
+    res.json({ pugstats });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.toString() });
+  }
+});
+
+router.get("/:steam_id/season/:season_id/pug", async (req, res, next) => {
+  try {
+    let steamID = req.params.steam_id;
+    let seasonID = req.params.season_id;
+    let sql = `SELECT steam_id, name, sum(kills) as kills,
+          sum(deaths) as deaths, sum(assists) as assists, sum(k1) as k1,
+          sum(k2) as k2, sum(k3) as k3,
+          sum(k4) as k4, sum(k5) as k5, sum(v1) as v1,
+          sum(v2) as v2, sum(v3) as v3, sum(v4) as v4,
+          sum(v5) as v5, sum(roundsplayed) as trp, sum(flashbang_assists) as fba,
+          sum(damage) as dmg, sum(headshot_kills) as hsk, count(id) as totalMaps,
+          sum(winner) as wins 
+          FROM player_stats where steam_id = ?
+          AND match_id IN (
+           SELECT  id
+           FROM    \`match\`
+           WHERE   cancelled=0
+           AND     is_pug=1
+           AND     season_id=?)`;
+    let playerstats = await db.query(sql, [steamID, seasonID]);
+    if (!playerstats.length || !playerstats[0].steam_id) {
+      res.status(404).json({ message: "No stats found for player " + steamID });
+      return;
+    }
+    let pugstats = {
+      steamId: playerstats[0].steam_id,
+      name:
+        playerstats[0].name == null
+          ? await Utils.getSteamName(playerstats[0].steam_id)
+          : playerstats[0].name.replace('/"/g', '\\"'),
+      kills: parseFloat(playerstats[0].kills),
+      deaths: parseFloat(playerstats[0].deaths),
+      assists: parseFloat(playerstats[0].assists),
+      k1: parseFloat(playerstats[0].k1),
+      k2: parseFloat(playerstats[0].k2),
+      k3: parseFloat(playerstats[0].k3),
+      k4: parseFloat(playerstats[0].k4),
+      k5: parseFloat(playerstats[0].k5),
+      v1: parseFloat(playerstats[0].v1),
+      v2: parseFloat(playerstats[0].v2),
+      v3: parseFloat(playerstats[0].v3),
+      v4: parseFloat(playerstats[0].v4),
+      v5: parseFloat(playerstats[0].v5),
+      trp: parseFloat(playerstats[0].trp),
+      fba: parseFloat(playerstats[0].fba),
+      total_damage: parseFloat(playerstats[0].dmg),
+      hsk: parseFloat(playerstats[0].hsk),
+      hsp:
+        parseFloat(playerstats[0].kills) === 0
+          ? 0
+          : (
+              (parseFloat(playerstats[0].hsk) /
+                parseFloat(playerstats[0].kills)) *
+              100
+            ).toFixed(2),
+      average_rating: Utils.getElo(
+        parseFloat(playerstats[0].kills),
+        parseFloat(playerstats[0].deaths),
+        parseFloat(playerstats[0].assists),
+        parseFloat(playerstats[0].hsk),
+        parseFloat(playerstats[0].k2),
+        parseFloat(playerstats[0].k3),
+        parseFloat(playerstats[0].k4),
+        parseFloat(playerstats[0].k5),
+        parseFloat(playerstats[0].v1),
+        parseFloat(playerstats[0].v2),
+        parseFloat(playerstats[0].v3),
+        parseFloat(playerstats[0].v4),
+        parseFloat(playerstats[0].v5),
+        parseFloat(playerstats[0].totalMaps),
+        parseFloat(playerstats[0].wins)
+      ),
+      wins: parseFloat(playerstats[0].wins),
+      total_maps: playerstats[0].totalMaps,
+    };
+    res.json({ pugstats });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.toString() });
+  }
+});
+
+router.get("/:steam_id/season/:season_id/official", async (req, res, next) => {
+  try {
+    let steamID = req.params.steam_id;
+    let seasonID = req.params.season_id;
+    let sql = `SELECT steam_id, name, sum(kills) as kills,
+          sum(deaths) as deaths, sum(assists) as assists, sum(k1) as k1,
+          sum(k2) as k2, sum(k3) as k3,
+          sum(k4) as k4, sum(k5) as k5, sum(v1) as v1,
+          sum(v2) as v2, sum(v3) as v3, sum(v4) as v4,
+          sum(v5) as v5, sum(roundsplayed) as trp, sum(flashbang_assists) as fba,
+          sum(damage) as dmg, sum(headshot_kills) as hsk, count(id) as totalMaps,
+          sum(winner) as wins 
+          FROM player_stats where steam_id = ?
+          AND match_id IN (
+           SELECT  id
+           FROM    \`match\`
+           WHERE   cancelled=0
+           AND     is_pug=0
+           AND     season_id=?)`;
+    let playerstats = await db.query(sql, [steamID, seasonID]);
+    if (!playerstats.length || !playerstats[0].steam_id) {
+      res.status(404).json({ message: "No stats found for player " + steamID });
+      return;
+    }
+    let pugstats = {
+      steamId: playerstats[0].steam_id,
+      name:
+        playerstats[0].name == null
+          ? await Utils.getSteamName(playerstats[0].steam_id)
+          : playerstats[0].name.replace('/"/g', '\\"'),
+      kills: parseFloat(playerstats[0].kills),
+      deaths: parseFloat(playerstats[0].deaths),
+      assists: parseFloat(playerstats[0].assists),
+      k1: parseFloat(playerstats[0].k1),
+      k2: parseFloat(playerstats[0].k2),
+      k3: parseFloat(playerstats[0].k3),
+      k4: parseFloat(playerstats[0].k4),
+      k5: parseFloat(playerstats[0].k5),
+      v1: parseFloat(playerstats[0].v1),
+      v2: parseFloat(playerstats[0].v2),
+      v3: parseFloat(playerstats[0].v3),
+      v4: parseFloat(playerstats[0].v4),
+      v5: parseFloat(playerstats[0].v5),
+      trp: parseFloat(playerstats[0].trp),
+      fba: parseFloat(playerstats[0].fba),
+      total_damage: parseFloat(playerstats[0].dmg),
+      hsk: parseFloat(playerstats[0].hsk),
+      hsp:
+        parseFloat(playerstats[0].kills) === 0
+          ? 0
+          : (
+              (parseFloat(playerstats[0].hsk) /
+                parseFloat(playerstats[0].kills)) *
+              100
+            ).toFixed(2),
+      average_rating: Utils.getElo(
+        parseFloat(playerstats[0].kills),
+        parseFloat(playerstats[0].deaths),
+        parseFloat(playerstats[0].assists),
+        parseFloat(playerstats[0].hsk),
+        parseFloat(playerstats[0].k2),
+        parseFloat(playerstats[0].k3),
+        parseFloat(playerstats[0].k4),
+        parseFloat(playerstats[0].k5),
+        parseFloat(playerstats[0].v1),
+        parseFloat(playerstats[0].v2),
+        parseFloat(playerstats[0].v3),
+        parseFloat(playerstats[0].v4),
+        parseFloat(playerstats[0].v5),
+        parseFloat(playerstats[0].totalMaps),
+        parseFloat(playerstats[0].wins)
+      ),
+      wins: parseFloat(playerstats[0].wins),
       total_maps: playerstats[0].totalMaps,
     };
     res.json({ pugstats });
@@ -422,7 +593,7 @@ router.get("/:steam_id/official", async (req, res, next) => {
            AND is_pug = 0`;
     let numWins;
     let playerstats = await db.query(sql, steamID);
-    if (!playerstats.length) {
+    if (!playerstats.length || !playerstats[0].steamId) {
       res.status(404).json({ message: "No stats found for player " + steamID });
       return;
     }
@@ -458,15 +629,22 @@ router.get("/:steam_id/official", async (req, res, next) => {
                 parseFloat(playerstats[0].kills)) *
               100
             ).toFixed(2),
-      average_rating: Utils.getRating(
+      average_rating: Utils.getElo(
         parseFloat(playerstats[0].kills),
-        parseFloat(playerstats[0].trp),
         parseFloat(playerstats[0].deaths),
-        parseFloat(playerstats[0].k1),
+        parseFloat(playerstats[0].assists),
+        parseFloat(playerstats[0].hsk),
         parseFloat(playerstats[0].k2),
         parseFloat(playerstats[0].k3),
         parseFloat(playerstats[0].k4),
-        parseFloat(playerstats[0].k5)
+        parseFloat(playerstats[0].k5),
+        parseFloat(playerstats[0].v1),
+        parseFloat(playerstats[0].v2),
+        parseFloat(playerstats[0].v3),
+        parseFloat(playerstats[0].v4),
+        parseFloat(playerstats[0].v5),
+        parseFloat(playerstats[0].totalMaps),
+        parseFloat(playerstats[0].wins)
       ),
       wins: numWins[0].wins,
       total_maps: playerstats[0].totalMaps,
@@ -551,7 +729,7 @@ router.get("/match/:match_id", async (req, res, next) => {
  *         $ref: '#/components/responses/Error'
  */
 
- router.get("/:steam_id/recent", async (req, res, next) => {
+router.get("/:steam_id/recent", async (req, res, next) => {
   try {
     let steamId = req.params.steam_id;
     let sql =
@@ -573,7 +751,6 @@ router.get("/match/:match_id", async (req, res, next) => {
     res.status(500).json({ message: err.toString() });
   }
 });
-
 
 /**
  * @swagger
@@ -648,53 +825,53 @@ router.post("/", Utils.ensureAuthenticated, async (req, res, next) => {
       });
       return;
     } else {
-        let insertSet = {
-          match_id: req.body[0].match_id,
-          map_id: req.body[0].map_id,
-          team_id: req.body[0].team_id,
-          steam_id: req.body[0].steam_id,
-          name: req.body[0].name,
-          kills: req.body[0].kills,
-          deaths: req.body[0].deaths,
-          roundsplayed: req.body[0].roundsplayed,
-          assists: req.body[0].assists,
-          flashbang_assists: req.body[0].flashbang_assists,
-          teamkills: req.body[0].teamkills,
-          knife_kills: req.body[0].knife_kills,
-          suicides: req.body[0].suicides,
-          headshot_kills: req.body[0].headshot_kills,
-          damage: req.body[0].damage,
-          util_damage: req.body[0].util_damage,
-          enemies_flashed: req.body[0].enemies_flashed,
-          friendlies_flashed: req.body[0].friendlies_flashed,
-          bomb_plants: req.body[0].bomb_plants,
-          bomb_defuses: req.body[0].bomb_defuses,
-          v1: req.body[0].v1,
-          v2: req.body[0].v2,
-          v3: req.body[0].v3,
-          v4: req.body[0].v4,
-          v5: req.body[0].v5,
-          k1: req.body[0].k1,
-          k2: req.body[0].k2,
-          k3: req.body[0].k3,
-          k4: req.body[0].k4,
-          k5: req.body[0].k5,
-          firstdeath_ct: req.body[0].firstdeath_ct,
-          firstdeath_t: req.body[0].firstdeath_t,
-          firstkill_ct: req.body[0].firstkill_ct,
-          firstkill_t: req.body[0].firstkill_t,
-          kast: req.body[0].kast,
-          contribution_score: req.body[0].contribution_score,
-          mvp: req.body[0].mvp
-        };
-        let sql = "INSERT INTO player_stats SET ?";
-        // Remove any values that may not be inserted off the hop.
-        insertSet = await db.buildUpdateStatement(insertSet);
-        let insertPlayStats = await db.query(sql, [insertSet]);
-        res.json({
-          message: "Player Stats inserted successfully!",
-          id: insertPlayStats.insertId,
-        });
+      let insertSet = {
+        match_id: req.body[0].match_id,
+        map_id: req.body[0].map_id,
+        team_id: req.body[0].team_id,
+        steam_id: req.body[0].steam_id,
+        name: req.body[0].name,
+        kills: req.body[0].kills,
+        deaths: req.body[0].deaths,
+        roundsplayed: req.body[0].roundsplayed,
+        assists: req.body[0].assists,
+        flashbang_assists: req.body[0].flashbang_assists,
+        teamkills: req.body[0].teamkills,
+        knife_kills: req.body[0].knife_kills,
+        suicides: req.body[0].suicides,
+        headshot_kills: req.body[0].headshot_kills,
+        damage: req.body[0].damage,
+        util_damage: req.body[0].util_damage,
+        enemies_flashed: req.body[0].enemies_flashed,
+        friendlies_flashed: req.body[0].friendlies_flashed,
+        bomb_plants: req.body[0].bomb_plants,
+        bomb_defuses: req.body[0].bomb_defuses,
+        v1: req.body[0].v1,
+        v2: req.body[0].v2,
+        v3: req.body[0].v3,
+        v4: req.body[0].v4,
+        v5: req.body[0].v5,
+        k1: req.body[0].k1,
+        k2: req.body[0].k2,
+        k3: req.body[0].k3,
+        k4: req.body[0].k4,
+        k5: req.body[0].k5,
+        firstdeath_ct: req.body[0].firstdeath_ct,
+        firstdeath_t: req.body[0].firstdeath_t,
+        firstkill_ct: req.body[0].firstkill_ct,
+        firstkill_t: req.body[0].firstkill_t,
+        kast: req.body[0].kast,
+        contribution_score: req.body[0].contribution_score,
+        mvp: req.body[0].mvp,
+      };
+      let sql = "INSERT INTO player_stats SET ?";
+      // Remove any values that may not be inserted off the hop.
+      insertSet = await db.buildUpdateStatement(insertSet);
+      let insertPlayStats = await db.query(sql, [insertSet]);
+      res.json({
+        message: "Player Stats inserted successfully!",
+        id: insertPlayStats.insertId,
+      });
     }
   } catch (err) {
     res.status(500).json({ message: err.toString() });
@@ -755,7 +932,7 @@ router.put("/", Utils.ensureAuthenticated, async (req, res, next) => {
     } else if (
       matchRow[0].mtch_api_key != req.body[0].api_key &&
       !Utils.superAdminCheck(req.user)
-    ) {      
+    ) {
       res
         .status(403)
         .json({ message: "User is not authorized to perform action." });
@@ -803,14 +980,12 @@ router.put("/", Utils.ensureAuthenticated, async (req, res, next) => {
         firstkill_t: req.body[0].firstkill_t,
         kast: req.body[0].kast,
         contribution_score: req.body[0].contribution_score,
-        mvp: req.body[0].mvp
+        mvp: req.body[0].mvp,
       };
       // Remove any values that may not be updated.
       updateStmt = await db.buildUpdateStatement(updateStmt);
       if (!Object.keys(updateStmt)) {
-        res
-          .status(412)
-          .json({ message: "No update data has been provided." });
+        res.status(412).json({ message: "No update data has been provided." });
         return;
       }
       let sql =
@@ -906,9 +1081,7 @@ router.delete("/", async (req, res, next) => {
       matchRow[0].mtch_end_time != null
     ) {
       let deleteSql = "DELETE FROM player_stats WHERE match_id = ?";
-      const delRows = await db.query(deleteSql, [
-        req.body[0].match_id,
-      ]);
+      const delRows = await db.query(deleteSql, [req.body[0].match_id]);
       if (delRows.affectedRows > 0) {
         res.json({ message: "Player stats has been deleted successfully." });
         return;
@@ -926,5 +1099,58 @@ router.delete("/", async (req, res, next) => {
     res.status(500).json({ message: err.toString() });
   }
 });
+
+router.delete(
+  "/:steam_id/delete",
+  Utils.ensureAuthenticated,
+  async (req, res, next) => {
+    try {
+      let steamId = req.params.steam_id;
+      let userId = req.user.id;
+      let deleteSql =
+        "DELETE ps " +
+        "FROM `player_stats` ps " +
+        "JOIN `match` m " +
+        "   ON ps.match_id = m.id AND m.user_id = ? " +
+        "WHERE steam_id = ?";
+      const delRows = await db.query(deleteSql, [userId, steamId]);
+      if (delRows.affectedRows > 0) {
+        res.json({ message: "Player stats has been deleted successfully." });
+      } else {
+        res.status(404).json({ message: "No player stats found." });
+      }
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: err.toString() });
+    }
+  }
+);
+
+router.delete(
+  "/:steam_id/delete/:season_id",
+  Utils.ensureAuthenticated,
+  async (req, res, next) => {
+    try {
+      let steamId = req.params.steam_id;
+      let seasonId = req.params.season_id;
+      let userId = req.user.id;
+      let deleteSql =
+        "DELETE ps " +
+        "FROM `player_stats` ps " +
+        "JOIN `match` m " +
+        "   ON ps.match_id = m.id AND m.user_id = ? AND m.season_id = ?" +
+        "WHERE steam_id = ?";
+      const delRows = await db.query(deleteSql, [userId, seasonId, steamId]);
+      if (delRows.affectedRows > 0) {
+        res.json({ message: "Player stats has been deleted successfully." });
+      } else {
+        res.status(404).json({ message: "No player stats found." });
+      }
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: err.toString() });
+    }
+  }
+);
 
 export default router;

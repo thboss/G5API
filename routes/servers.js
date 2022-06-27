@@ -365,6 +365,7 @@ router.get(
           serverInfo[0].port,
           serverInfo[0].rcon_password
         );
+        let get5_available = await ourServer.isGet5Available();
         let serverUp = await ourServer.isServerAlive();
         let serverUpToDate = await ourServer.isServerUpToDate();
         if (!serverUp) {
@@ -376,6 +377,11 @@ router.get(
           res.status(412).json({
             message:
               "Server is not up to date - please update your game server instance.",
+          });
+        } else if (!get5_available) {
+          res.status(412).json({
+            message:
+              "Either get5 or get5_apistats plugin missing.",
           });
         } else {
           res.json({ message: "Server is alive and up to date." });

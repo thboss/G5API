@@ -37,7 +37,7 @@ import config from "config";
  * @const
  */
 const basicRateLimit = rateLimit({
-  windowMs: 60 * 60 * 1000,
+  windowMs: 60 * 1000,
   max: 60,
   message: "Too many requests from this IP. Please try again in an hour.",
   keyGenerator: async (req) => {
@@ -59,8 +59,8 @@ const basicRateLimit = rateLimit({
  * @const
  */
 const updateMapRateLimit = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 1000,
+  windowMs: 60 * 1000,
+  max: 60,
   message: "Too many requests from this IP. Please try again in an hour.",
   keyGenerator: async (req) => {
     try {
@@ -172,7 +172,7 @@ router.post("/:match_id/finish", basicRateLimit, async (req, res, next) => {
     // Throw error if wrong.
     // Special edge case for cancelled matches on remote server.
     // DO NOT throw error, just do nothing and report back we're finalized.
-    if (matchValues[0].api_key.localeCompare(req.body.key) !== 0)
+    if (matchValues[0].api_key.localeCompare(req.body.key) !== 0) 
       throw "Not a correct API Key.";
     if (matchFinalized == true) {
       res.status(200).send({ message: "Match already finalized" });
@@ -1118,9 +1118,8 @@ router.post(
       let matchID = req.params.match_id == null ? null : req.params.match_id;
       let mapNum = req.params.map_number == null ? null : req.params.map_number;
       let winner = req.body.winner == null ? null : req.body.winner;
-      let team1Score;
-      let team2Score;
-
+      let team1Score = 0;
+      let team2Score = 0;
       // Data manipulation inside function.
       let updateStmt = {};
       let updateSql;
@@ -1332,6 +1331,7 @@ router.post(
       let updateSql;
       let matchFinalized = true;
       let playerTeamId;
+      let playerTeamName;
       // Database calls.
       let sql = "SELECT * FROM `match` WHERE id = ?";
       const matchValues = await db.query(sql, matchID);
@@ -1361,8 +1361,13 @@ router.post(
 
       // Update player stats. ACID transaction.
 
-      if (playerTeam === "team1") playerTeamId = matchValues[0].team1_id;
-      else if (playerTeam === "team2") playerTeamId = matchValues[0].team2_id;
+      if (playerTeam === "team1") {
+        playerTeamId = matchValues[0].team1_id;
+        playerTeamName = matchValues[0].team1_string;
+      } else if (playerTeam === "team2") {
+        playerTeamId = matchValues[0].team2_id;
+        playerTeamName = matchValues[0].team2_string;
+      }
 
       updateStmt = {
         match_id: matchID,
@@ -1401,7 +1406,8 @@ router.post(
         firstkill_t: playerFirstKillT,
         kast: playerKast,
         contribution_score: playerContrib,
-        mvp: playerMvp
+        mvp: playerMvp,
+        team_name: playerTeamName
       };
       // Remove any values that may not be updated.
       updateStmt = await db.buildUpdateStatement(updateStmt);

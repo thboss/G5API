@@ -1,6 +1,6 @@
 import createError from "http-errors";
 import express from "express";
-import connectRedis from 'connect-redis';
+import connectRedis from "connect-redis";
 import cookieParser from "cookie-parser";
 import logger from "morgan";
 import helmet from "helmet";
@@ -32,13 +32,11 @@ import bearerToken from "express-bearer-token";
 import config from "config";
 import session from "express-session";
 import { createClient } from "redis";
-import { createMockPassport } from "passport-mock-strategy";
-
 
 const app = express();
 
 app.use(logger("dev"));
-app.use(express.raw({ type: 'application/octet-stream', limit: "2gb" }));
+app.use(express.raw({ type: "application/octet-stream", limit: "2gb" }));
 app.use(express.json({ limit: "512kb" }));
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
@@ -49,11 +47,10 @@ app.use("/static/img/logos", express.static("public/img/logos"));
 app.use(helmet());
 if (config.get("server.useRedis")) {
   // Messy but avoids any open file handles.
-  const redisClient =
-    createClient({
-      legacyMode: true,
-      password: config.get(process.env.NODE_ENV + ".redisPass"),
-    });
+  const redisClient = createClient({
+    legacyMode: true,
+    password: config.get(process.env.NODE_ENV + ".redisPass"),
+  });
 
   //const redisStore = require("connect-redis")(session);
 
@@ -186,13 +183,14 @@ app.get("/logout", (req, res) => {
 // END Steam API Calls.
 
 // Local Passport Calls
-app.post("/login",
-  passport.authenticate('local-login', {
+app.post(
+  "/login",
+  passport.authenticate("local-login", {
     failWithError: true,
-    failureMessage: true
+    failureMessage: true,
   }),
   (req, res) => {
-    return res.json({message: "Success!"});
+    return res.json({ message: "Success!" });
   },
   (err, req, res, next) => {
     console.log(err);
@@ -201,13 +199,14 @@ app.post("/login",
   }
 );
 
-app.post("/register",
-  passport.authenticate('local-register', {
+app.post(
+  "/register",
+  passport.authenticate("local-register", {
     failWithError: true,
-    failureMessage: true
+    failureMessage: true,
   }),
   (req, res) => {
-    return res.json({message: "Success!"});
+    return res.json({ message: "Success!" });
   },
   (err, req, res, next) => {
     err.message = req.session.messages[req.session.messages.length - 1];
@@ -216,7 +215,6 @@ app.post("/register",
 );
 
 // END Local Passport Calls
-
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
