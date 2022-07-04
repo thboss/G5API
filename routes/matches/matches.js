@@ -670,12 +670,14 @@ router.get("/:match_id/config", async (req, res, next) => {
     const team1Data = await db.query(sql, [matchInfo[0].team1_id]);
     const team2Data = await db.query(sql, [matchInfo[0].team2_id]);
 
-    matchJSON.team1 = JSON.parse(
-      await build_team_dict(team1Data[0], 1, matchInfo[0])
-    );
-    matchJSON.team2 = JSON.parse(
-      await build_team_dict(team2Data[0], 2, matchInfo[0])
-    );
+    if (team1Data[0])
+      matchJSON.team1 = JSON.parse(
+        await build_team_dict(team1Data[0], 1, matchInfo[0])
+      );
+    if (team2Data[0])
+      matchJSON.team2 = JSON.parse(
+        await build_team_dict(team2Data[0], 2, matchInfo[0])
+      );
     sql = "SELECT * FROM match_cvar WHERE match_id = ?";
     matchCvars = await db.query(sql, matchID);
     //XXX: Possibly breaking JSON with quotes only?
