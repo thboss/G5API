@@ -2,6 +2,8 @@ import Utils from "./utils.js";
 import Rcon from "rcon";
 import fetch from "node-fetch";
 
+const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+
 /**
  * Creates a new server object to run various tasks.
  * @class
@@ -33,7 +35,7 @@ class ServerRcon {
           resp = str;
         })
         .on("error", function (error) {
-          console.log("[RCON] Got error: " + error);
+          console.error("[RCON] Got error: " + error);
           return reject(error);
         })
         .on("end", function () {
@@ -48,45 +50,38 @@ class ServerRcon {
    * @function
    */
   async isGet5Available() {
-    try {
-      if (process.env.NODE_ENV === "test") {
-        return false;
-      }
-      let get5Status = await this.execute("get5_web_available");
-      // Weird L coming in from the console call? Incomplete packets.
-      get5Status =
-        get5Status.substring(0, get5Status.lastIndexOf("L")).length == 0
-          ? get5Status
-          : get5Status.substring(0, get5Status.lastIndexOf("L"));
-      let get5JsonStatus;
+    let attempts = 0;
+    while (true) {
       try {
-        get5JsonStatus = await JSON.parse(get5Status);
+        if (process.env.NODE_ENV === "test") {
+          return false;
+        }
+        let get5Status = await this.execute("get5_web_available");
+        // Weird L coming in from the console call? Incomplete packets.
+        get5Status =
+          get5Status.substring(0, get5Status.lastIndexOf("L")).length == 0
+            ? get5Status
+            : get5Status.substring(0, get5Status.lastIndexOf("L"));
+        let get5JsonStatus = await JSON.parse(get5Status);
+
+        if (get5Status.includes("Unknown command")) {
+          console.log("Either get5 or get5_apistats plugin missing.");
+          return false;
+        } else if (get5JsonStatus.gamestate != 0) {
+          console.log("Server already has a get5 match setup.");
+          return false;
+        } else {
+          return true;
+        }
       } catch (err) {
-        console.log(
-          "Caught error when executing command: get5_web_available\n" +
-            "   Game server: " +
-            this.host +
-            ":" +
-            this.port.toString() +
-            "\n   Response: " +
-            get5Status.toString() +
-            "\n",
-          err
-        );
-        return false;
+        if (attempts < 3) {
+          attempts++;
+          await delay(2000);
+        } else {
+          console.error("Error on isAvailable server: " + err.toString());
+          return false;
+        }
       }
-      if (get5Status.includes("Unknown command")) {
-        console.log("Either get5 or get5_apistats plugin missing.");
-        return false;
-      } else if (get5JsonStatus.gamestate != 0) {
-        console.log("Server already has a get5 match setup.");
-        return false;
-      } else {
-        return true;
-      }
-    } catch (err) {
-      console.error("Error on isAvailable server: " + err.toString());
-      throw err;
     }
   }
 
@@ -95,24 +90,32 @@ class ServerRcon {
    * @function
    */
   async get5Status() {
-    try {
-      if (process.env.NODE_ENV === "test") {
-        return false;
-      }
-      let get5Status = await this.execute("get5_status");
-      // Weird L coming in from the console call? Incomplete packets.
-      get5Status =
-        get5Status.substring(0, get5Status.lastIndexOf("L")).length == 0
-          ? get5Status
-          : get5Status.substring(0, get5Status.lastIndexOf("L"));
-      let get5JsonStatus;
-      get5JsonStatus = await JSON.parse(get5Status);
+    let attempts = 0;
+    while (true) {
+      try {
+        if (process.env.NODE_ENV === "test") {
+          return false;
+        }
+        let get5Status = await this.execute("get5_status");
+        // Weird L coming in from the console call? Incomplete packets.
+        get5Status =
+          get5Status.substring(0, get5Status.lastIndexOf("L")).length == 0
+            ? get5Status
+            : get5Status.substring(0, get5Status.lastIndexOf("L"));
+        let get5JsonStatus;
+        get5JsonStatus = await JSON.parse(get5Status);
 
-      if (get5Status.includes("Unknown command")) return false;
-      return get5JsonStatus;
-    } catch (err) {
-      console.error("Error on get5Status server: " + err.toString());
-      return false;
+        if (get5Status.includes("Unknown command")) return false;
+        return get5JsonStatus;
+      } catch (err) {
+        if (attempts < 3) {
+          attempts++;
+          await delay(2000);
+        } else {
+          console.error("Error on get5Status server: " + err.toString());
+          return false;
+        }
+      }
     }
   }
 
@@ -198,25 +201,35 @@ class ServerRcon {
    * @returns True if we set everything, false on failure, throw error if there is a problem.
    */
   async prepareGet5Match(get5URLString, get5APIKeyString) {
-    try {
-      if (process.env.NODE_ENV === "test") {
-        return false;
+    let attempts = 0;
+    while (true) {
+      try {
+        if (process.env.NODE_ENV === "test") {
+          return false;
+        }
+        let loadMatchResponse = await this.execute(
+          "get5_loadmatch_url " + '"' + get5URLString + '"'
+        );
+        if (loadMatchResponse.includes("Failed")) return false;
+        else if (loadMatchResponse.includes("another match already loaded"))
+          return false;
+        loadMatchResponse = await this.execute(
+          "get5_web_api_key " + get5APIKeyString
+        );
+        // Swap map to default dust2, ensures our cvars stick for the match.
+        // await this.execute("map de_dust2");
+        return true;
+      } catch (err) {
+        if (attempts < 3) {
+          attempts++;
+          await delay(2000);
+        } else {
+          console.error(
+            "Error on preparing match to server: " + err.toString()
+          );
+          return false;
+        }
       }
-      let loadMatchResponse = await this.execute(
-        "get5_loadmatch_url " + '"' + get5URLString + '"'
-      );
-      if (loadMatchResponse.includes("Failed")) return false;
-      else if (loadMatchResponse.includes("another match already loaded"))
-        return false;
-      loadMatchResponse = await this.execute(
-        "get5_web_api_key " + get5APIKeyString
-      );
-      // Swap map to default dust2, ensures our cvars stick for the match.
-      // await this.execute("map de_dust2");
-      return true;
-    } catch (err) {
-      console.error("Error on preparing match to server: " + err.toString());
-      throw err;
     }
   }
 
