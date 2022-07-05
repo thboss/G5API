@@ -123,17 +123,21 @@ router.get(
           serverRow[0].port,
           serverRow[0].rcon_password
         );
-        let serverGet5Status = await serverUpdate.get5Status();
-        if (
-          serverGet5Status &&
-          serverGet5Status.matchid == req.params.match_id
-        ) {
-          if (!(await serverUpdate.endGet5Match())) {
-            console.log(
-              "Error attempting to stop match on game server side. Will continue."
-            );
+        let serverUpdateSql = "UPDATE game_server SET in_use=0 WHERE id=?";
+        try {
+          let serverGet5Status = await serverUpdate.get5Status();
+          if (
+            serverGet5Status &&
+            serverGet5Status.matchid == req.params.match_id
+          ) {
+            if (!(await serverUpdate.endGet5Match())) {
+              console.log(
+                "Error attempting to stop match on game server side. Will continue."
+              );
+            }
+            await db.query(serverUpdateSql, [matchRow[0].server_id]);
           }
-          let serverUpdateSql = "UPDATE game_server SET in_use=0 WHERE id=?";
+        } catch (err) {
           await db.query(serverUpdateSql, [matchRow[0].server_id]);
         }
         res.json({ message: "Match has been forfeitted successfully." });
@@ -245,17 +249,21 @@ router.get(
             serverRow[0].port,
             serverRow[0].rcon_password
           );
-          let serverGet5Status = await serverUpdate.get5Status();
-          if (
-            serverGet5Status &&
-            serverGet5Status.matchid == req.params.match_id
-          ) {
-            if (!(await serverUpdate.endGet5Match())) {
-              console.log(
-                "Error attempting to stop match on game server side. Will continue."
-              );
+          let serverUpdateSql = "UPDATE game_server SET in_use=0 WHERE id=?";
+          try {
+            let serverGet5Status = await serverUpdate.get5Status();
+            if (
+              serverGet5Status &&
+              serverGet5Status.matchid == req.params.match_id
+            ) {
+              if (!(await serverUpdate.endGet5Match())) {
+                console.log(
+                  "Error attempting to stop match on game server side. Will continue."
+                );
+              }
+              await db.query(serverUpdateSql, [matchRow[0].server_id]);
             }
-            let serverUpdateSql = "UPDATE game_server SET in_use=0 WHERE id=?";
+          } catch (err) {
             await db.query(serverUpdateSql, [matchRow[0].server_id]);
           }
         }

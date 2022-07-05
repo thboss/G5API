@@ -50,38 +50,38 @@ class ServerRcon {
    * @function
    */
   async isGet5Available() {
+    if (process.env.NODE_ENV === "test") {
+      return false;
+    }
     let attempts = 0;
+    let get5Status;
+    let get5JsonStatus;
     while (true) {
       try {
-        if (process.env.NODE_ENV === "test") {
-          return false;
-        }
-        let get5Status = await this.execute("get5_web_available");
+        get5Status = await this.execute("get5_web_available");
         // Weird L coming in from the console call? Incomplete packets.
         get5Status =
           get5Status.substring(0, get5Status.lastIndexOf("L")).length == 0
             ? get5Status
             : get5Status.substring(0, get5Status.lastIndexOf("L"));
-        let get5JsonStatus = await JSON.parse(get5Status);
-
-        if (get5Status.includes("Unknown command")) {
-          console.log("Either get5 or get5_apistats plugin missing.");
-          return false;
-        } else if (get5JsonStatus.gamestate != 0) {
-          console.log("Server already has a get5 match setup.");
-          return false;
-        } else {
-          return true;
-        }
+        get5JsonStatus = await JSON.parse(get5Status);
+        break;
       } catch (err) {
         if (attempts < 3) {
           attempts++;
           await delay(2000);
         } else {
-          console.error("Error on isAvailable server: " + err.toString());
-          return false;
+          return { error: "Error on isGet5Available: " + err.toString() };
         }
       }
+    }
+
+    if (get5Status.includes("Unknown command")) {
+      return { error: "Either get5 or get5_apistats plugin missing." };
+    } else if (get5JsonStatus.gamestate != 0) {
+      return { error: "Server already has a get5 match setup." };
+    } else {
+      return true;
     }
   }
 
@@ -90,33 +90,35 @@ class ServerRcon {
    * @function
    */
   async get5Status() {
+    if (process.env.NODE_ENV === "test") {
+      return false;
+    }
+    let get5Status;
+    let get5JsonStatus;
     let attempts = 0;
     while (true) {
       try {
-        if (process.env.NODE_ENV === "test") {
-          return false;
-        }
-        let get5Status = await this.execute("get5_status");
+        get5Status = await this.execute("get5_status");
         // Weird L coming in from the console call? Incomplete packets.
         get5Status =
           get5Status.substring(0, get5Status.lastIndexOf("L")).length == 0
             ? get5Status
             : get5Status.substring(0, get5Status.lastIndexOf("L"));
-        let get5JsonStatus;
-        get5JsonStatus = await JSON.parse(get5Status);
 
-        if (get5Status.includes("Unknown command")) return false;
-        return get5JsonStatus;
+        get5JsonStatus = await JSON.parse(get5Status);
+        break;
       } catch (err) {
         if (attempts < 3) {
           attempts++;
           await delay(2000);
         } else {
-          console.error("Error on get5Status server: " + err.toString());
-          return false;
+          return { error: "Error on get5Status: " + err.toString() };
         }
       }
     }
+    if (get5Status.includes("Unknown command"))
+      return { error: "get5 plugin missing." };
+    return get5JsonStatus;
   }
 
   /**
@@ -131,8 +133,10 @@ class ServerRcon {
       let get5Status = await this.execute("status");
       return get5Status != "";
     } catch (err) {
-      console.error("Error on game server: " + err.toString());
-      return false;
+      return {
+        error:
+          "Server did not respond in 2500 ms. Please check if server is online and password is correct.",
+      };
     }
   }
 
@@ -157,19 +161,18 @@ class ServerRcon {
       );
       let data = await response.json();
       if (!data.response.up_to_date) {
-        console.log(
-          "Server is not up to date! Current version: " +
+        return {
+          error:
+            "Server is not up to date! Current version: " +
             serverVersion +
             " - Latest version: " +
-            data.response.required_version
-        );
-        return false;
+            data.response.required_version,
+        };
       } else {
         return true;
       }
     } catch (err) {
-      console.error("Error on game server: " + err.toString());
-      return false;
+      return { error: "Error on isServerUpToDate: " + err.toString() };
     }
   }
 
@@ -188,7 +191,7 @@ class ServerRcon {
       let returnValue = await this.execute(rconCommandString);
       return returnValue;
     } catch (err) {
-      console.error("Error on sendRCON to server: " + err.toString());
+      console.error("Error on sendRconCommand: " + err.toString());
       throw err;
     }
   }
@@ -224,9 +227,7 @@ class ServerRcon {
           attempts++;
           await delay(2000);
         } else {
-          console.error(
-            "Error on preparing match to server: " + err.toString()
-          );
+          console.error("Error on prepareGet5Match: " + err.toString());
           return false;
         }
       }
@@ -246,8 +247,8 @@ class ServerRcon {
       if (loadMatchResponse) return false;
       return true;
     } catch (err) {
-      console.error("RCON error on ending match: " + err.toString());
-      return false;
+      console.error("Error on endGet5Match: " + err.toString());
+      throw err;
     }
   }
 
@@ -263,7 +264,7 @@ class ServerRcon {
       await this.execute("sm_pause");
       return true;
     } catch (err) {
-      console.error("RCON error on pause: " + err.toString());
+      console.error("Error on pauseMatch: " + err.toString());
       return false;
     }
   }
@@ -280,7 +281,7 @@ class ServerRcon {
       await this.execute("sm_unpause");
       return true;
     } catch (err) {
-      console.error("RCON error on unpause server: " + err.toString());
+      console.error("Error on unpauseMatch: " + err.toString());
       return false;
     }
   }
@@ -315,7 +316,7 @@ class ServerRcon {
         );
       return loadMatchResponse;
     } catch (err) {
-      console.error("RCON error on addUser: " + err.toString());
+      console.error("Error on addUser: " + err.toString());
       throw err;
     }
   }
@@ -334,7 +335,7 @@ class ServerRcon {
       loadMatchResponse = await this.execute("get5_removeplayer " + steamId);
       return loadMatchResponse;
     } catch (err) {
-      console.error("RCON error on removeUser: " + err.toString());
+      console.error("Error on removeUser: " + err.toString());
       throw err;
     }
   }
@@ -351,7 +352,7 @@ class ServerRcon {
       let loadMatchResponse = await this.execute("get5_listbackups");
       return loadMatchResponse;
     } catch (err) {
-      console.error("RCON error on getBackups: " + err.toString());
+      console.error("Error on getBackups: " + err.toString());
       throw err;
     }
   }
@@ -371,7 +372,7 @@ class ServerRcon {
       );
       return loadMatchResponse;
     } catch (err) {
-      console.error("RCON error on restore backup: " + err.toString());
+      console.error("Error on restoreBackup: " + err.toString());
       throw err;
     }
   }

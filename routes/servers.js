@@ -135,12 +135,12 @@ router.get("/", Utils.ensureAuthenticated, async (req, res, next) => {
  *       500:
  *         $ref: '#/components/responses/Error'
  */
- router.get("/publiccount", async (req, res, next) => {
+router.get("/publiccount", async (req, res, next) => {
   try {
-    let sql = 
+    let sql =
       "SELECT COUNT(*) as cnt FROM game_server gs WHERE gs.public_server=1";
     let servers = await db.query(sql);
-    res.json({ "servers": servers[0].cnt });
+    res.json({ servers: servers[0].cnt });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: err.toString() });
@@ -365,27 +365,22 @@ router.get(
           serverInfo[0].port,
           serverInfo[0].rcon_password
         );
-        let get5_available = await ourServer.isGet5Available();
-        let serverUp = await ourServer.isServerAlive();
-        let serverUpToDate = await ourServer.isServerUpToDate();
-        if (!serverUp) {
-          res.status(408).json({
-            message:
-              "Server did not respond in 2500 ms. Please check if server is online and password is correct.",
-          });
-        } else if (!serverUpToDate) {
-          res.status(412).json({
-            message:
-              "Server is not up to date - please update your game server instance.",
-          });
-        } else if (!get5_available) {
-          res.status(412).json({
-            message:
-              "Either get5 or get5_apistats plugin missing.",
-          });
-        } else {
-          res.json({ message: "Server is alive and up to date." });
+        let { error: serverAliveError } = await ourServer.isServerAlive();
+        if (serverAliveError) {
+          res.status(408).json({ message: serverAliveError });
+          return;
         }
+        let { error: serverUpdateError } = await ourServer.isServerUpToDate();
+        if (serverUpdateError) {
+          res.status(412).json({ message: serverUpdateError });
+          return;
+        }
+        let { error: get5Error } = await ourServer.isGet5Available();
+        if (get5Error) {
+          res.status(412).json({ message: get5Error });
+          return;
+        }
+        res.json({ message: "Server is alive and up to date." });
       }
     } catch (err) {
       console.error(err);
@@ -452,8 +447,8 @@ router.post("/", Utils.ensureAuthenticated, async (req, res, next) => {
       req.body[0].port,
       rconPass
     );
-    let serverUp = await ourServer.isServerAlive();
-    if (!serverUp) {
+    let { error: serverAliveError } = await ourServer.isServerAlive();
+    if (serverAliveError) {
       res.json({
         message:
           "Game Server did not respond in time. However, we have still inserted the server successfully.",
@@ -563,8 +558,8 @@ router.put("/", Utils.ensureAuthenticated, async (req, res, next) => {
             ? serveInfo[0].rcon_password
             : Utils.encrypt(req.body[0].rcon_password)
         );
-        let serverUp = await ourServer.isServerAlive();
-        if (!serverUp) {
+        let { error: serverAliveError } = await ourServer.isServerAlive();
+        if (serverAliveError) {
           res.json({
             message:
               "Game Server did not respond in time. However, we have still updated the server successfully.",
