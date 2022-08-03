@@ -21,6 +21,7 @@ import usersRouter from "./routes/users.js";
 import vetoesRouter from "./routes/vetoes.js";
 import vetosidesRouter from "./routes/vetosides.js";
 import mapListRouter from "./routes/maps.js";
+import ranksRouter from "./routes/ranks.js";
 //End Route Files
 
 import { serve, setup } from "swagger-ui-express";
@@ -110,7 +111,7 @@ const options = {
     openapi: "3.0.0", // Specification (optional, defaults to swagger: '2.0')
     info: {
       title: "G5API", // Title (required)
-      version: "1.5.0", // Version (required)
+      version: "1.6.0", // Version (required)
     },
   },
   // Path to the API docs
@@ -128,6 +129,7 @@ const options = {
     "./routes/users.js",
     "./routes/vetoes.js",
     "./routes/vetosides.js",
+    "./routes/ranks.js",
   ],
 };
 const swaggerSpec = swaggerJSDoc(options);
@@ -150,6 +152,7 @@ app.use("/seasons", seasonsRouter);
 app.use("/match", legacyAPICalls);
 app.use("/leaderboard", leaderboardRouter);
 app.use("/maps", mapListRouter);
+app.use("/ranks", ranksRouter);
 //END ROUTES
 
 // Steam API Calls.
